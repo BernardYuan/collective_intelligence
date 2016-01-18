@@ -27,7 +27,7 @@ class crawler:
 
     #indexing individual page
     def addtoindex(self, url, soup) :
-        if isindexed(url) :
+        if self.isindexed(url) :
             return
         # get separated words
         text = self.gettextonly(soup)
@@ -87,6 +87,8 @@ class crawler:
         for i in range(depth):
             newpages = set()
             for page in pages:
+                if self.isindexed(page):
+                    continue
                 try:
                     p = urllib2.urlopen(page)
                 except:
