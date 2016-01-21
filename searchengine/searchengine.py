@@ -3,7 +3,7 @@ class searcher:
     def __init__(self,dbname):
         self.con = sqlite.connect(dbname)
 
-    def __def__(self) :
+    def __del__(self) :
         self.con.close()
 
     # search the rows matching corresponding query string
@@ -45,6 +45,28 @@ class searcher:
         for row in rows:
             count[row[0]] += 1
         return self.getnormalizedscores(count)
+    def locationscore(self,rows) :
+        location = dict([(row[0],1000000) for row in rows])
+        for row in rows:
+            loc = sum(row[1:])
+            if loc < location[row[0]]:
+                location[row[0]] = loc
+        return self.getnormalizedscores(location, SMALL=True)
+    def distancescore(self,rows) :
+        if len(rows[0]) <=2:
+            return dict([(row[0],1.0) for row in rows])
+        mindist = dict([(row[0],1000000) for row in rows])
+        for row in rows:
+            dist = sum([abs(row[i]-row[i-1]) for i in range(2, len(row))])
+            if dist < mindist[row[0]]:
+                mindist[row[0]] = dist
+        return self.getnormalizedscores(mindist, SMALL=True)
+    def pagerankscore(self, rows) :
+        prs = dict([(row[0],self.con.execute("select score from pagerank where urlid = %d" % row[0]).fetchone()[0]) for row in rows])
+        print prs
+        maxrank = max(prs.values())
+        norm = dict([(u,1.0*l/maxrank) for (u,l) in prs.items()])
+        return norm
 
     def getnormalizedscores(self,scores,SMALL=False) :
         vsmall = 0.00001 # avoid dividing zero
@@ -61,7 +83,10 @@ class searcher:
         totalscores = dict([(row[0],0) for row in rows])
 
         #parameters in weighting function
-        weights = [(1.0,self.frequency(rows))]
+        weights = [(1.0,self.frequency(rows)),
+                (1.0,self.locationscore(rows)),
+                (1.0,self.distancescore(rows)),
+                (1.0,self.pagerankscore(rows))]
 
         for (weight,scores) in weights:
             for url in totalscores:
