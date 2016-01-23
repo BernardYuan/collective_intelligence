@@ -6,6 +6,7 @@ __pycache__/
 *.so
 # db files
 *.db
+searchengine/db/*
 
 # Distribution / packaging
 .Python

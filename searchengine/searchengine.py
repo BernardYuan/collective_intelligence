@@ -1,7 +1,9 @@
 import sqlite3 as sqlite
+import neuralnetwork as nn
 class searcher:
     def __init__(self,dbname):
         self.con = sqlite.connect(dbname)
+        self.net = nn.searchnet(dbname)
 
     def __del__(self) :
         self.con.close()
@@ -67,6 +69,13 @@ class searcher:
         maxrank = max(prs.values())
         norm = dict([(u,1.0*l/maxrank) for (u,l) in prs.items()])
         return norm
+    def nnscore(self, rows, wordids) :
+        # get unique url ids
+        urlids = [urlid for urlid in set([row[0] for row in rows])]
+        nnres = self.net.getresult(wordids, urlids)
+        scores = dict([(urlids[i], nnres[i]) for i in range(len(urlids))])
+        return self.getnormalizedscores(scores)
+
 
     def getnormalizedscores(self,scores,SMALL=False) :
         vsmall = 0.00001 # avoid dividing zero
@@ -86,7 +95,8 @@ class searcher:
         weights = [(1.0,self.frequency(rows)),
                 (1.0,self.locationscore(rows)),
                 (1.0,self.distancescore(rows)),
-                (1.0,self.pagerankscore(rows))]
+                (1.0,self.pagerankscore(rows)),
+                (1.0,self.nnscore(rows,wordids))]
 
         for (weight,scores) in weights:
             for url in totalscores:
@@ -100,6 +110,8 @@ class searcher:
         r, w = self.getmatchrows(querystring)
         ts = self.getscoredlist(r,w)
         ranked = sorted([(score,url) for (url, score) in ts.items()],reverse=1)
-        for s, i in ranked:
-            print "url:%s, score:%f" % (self.geturlname(i), s)
+        # for s, i in ranked:
+            # print "url:%s, score:%f" % (self.geturlname(i), s)
+        # return the wordid list and the top-10 ranked pages
+        return w, [r[1] for r in ranked[0:10]]
 
